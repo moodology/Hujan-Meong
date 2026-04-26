@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rain of Oyen</title>
+
+<style>
+:root {
+  --bg: #0f172a;
+  --glow: rgba(255,169,77,0.25);
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: sans-serif;
+  background: radial-gradient(circle at center, var(--glow), var(--bg));
+  transition: background 0.4s ease;
+}
+
+/* RAINBOW MODE */
+.rainbow {
+  animation: rainbowBG 6s linear infinite;
+}
+
+@keyframes rainbowBG {
+  0% { background-color: red; }
+  25% { background-color: blue; }
+  50% { background-color: purple; }
+  75% { background-color: orange; }
+  100% { background-color: red; }
+}
+
+.cat {
+  position: absolute;
+  cursor: pointer;
+  will-change: transform;
+  animation: fall linear forwards;
+}
+
+@keyframes fall {
+  from { transform: translateY(-120px) rotate(0deg); }
+  to { transform: translateY(110vh) rotate(360deg); }
+}
+
+.ui {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(10px);
+  padding: 12px;
+  border-radius: 14px;
+  color: white;
+  font-size: 12px;
+}
+
+input { width: 110px; }
+
+button {
+  margin-top: 6px;
+  width: 100%;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="ui">
+Speed<br>
+<input type="range" min="2" max="10" value="5" id="speed"><br>
+
+Density<br>
+<input type="range" min="1" max="10" value="5" id="density"><br>
+
+<button id="modeBtn">Mode: Calm</button>
+<button id="themeBtn">Theme: Auto</button>
+<button id="soundBtn">Sound: ON</button>
+</div>
+
+<script>
+const cats = ["cat1.png","cat2.png","cat3.png","cat4.png"];
+const meows = [
+  "https://www.fesliyanstudios.com/play-mp3/387",
+  "https://www.fesliyanstudios.com/play-mp3/388"
+];
+
+let speed = 5;
+let density = 5;
+let mode = "calm";
+let theme = "auto";
+let soundOn = true;
+let running = true;
+
+// BACKGROUND ENGINE
+function applyBackground() {
+  document.body.classList.remove("rainbow");
+
+  let isDark;
+  if (theme === "auto") {
+    isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  } else {
+    isDark = theme === "dark";
+  }
+
+  if (mode === "rainbow") {
+    document.body.classList.add("rainbow");
+    document.body.style.background = "";
+    return;
+  }
+
+  let bg, glow;
+
+  if (mode === "calm") {
+    bg = isDark ? "#0f172a" : "#ffffff";
+    glow = "rgba(255,169,77,0.2)";
+  }
+
+  if (mode === "cozy") {
+    bg = isDark ? "#1e293b" : "#fff7ed";
+    glow = "rgba(255,140,0,0.3)";
+  }
+
+  if (mode === "chaos") {
+    bg = "#020617";
+    glow = "rgba(255,69,0,0.4)";
+  }
+
+  document.body.style.background =
+    `radial-gradient(circle at center, ${glow}, ${bg})`;
+}
+
+applyBackground();
+
+// RESPONSIVE
+function getConfig() {
+  const w = window.innerWidth;
+  if (w < 500) return { max: 20, sizeMin: 30, sizeMax: 50 };
+  if (w < 900) return { max: 35, sizeMin: 40, sizeMax: 70 };
+  return { max: 60, sizeMin: 50, sizeMax: 90 };
+}
+
+let config = getConfig();
+window.addEventListener("resize", () => config = getConfig());
+
+// INPUT
+speed.oninput = e => speed = e.target.value;
+density.oninput = e => density = e.target.value;
+
+modeBtn.onclick = () => {
+  const modes = ["calm","cozy","chaos","rainbow"];
+  mode = modes[(modes.indexOf(mode)+1)%modes.length];
+  modeBtn.innerText = "Mode: " + mode;
+  applyBackground();
+};
+
+themeBtn.onclick = () => {
+  const themes = ["auto","light","dark"];
+  theme = themes[(themes.indexOf(theme)+1)%themes.length];
+  themeBtn.innerText = "Theme: " + theme;
+  applyBackground();
+};
+
+soundBtn.onclick = () => {
+  soundOn = !soundOn;
+  soundBtn.innerText = "Sound: " + (soundOn ? "ON" : "OFF");
+};
+
+// SPAWN
+function spawnCat() {
+  if (!running) return;
+  if (document.querySelectorAll(".cat").length > config.max) return;
+
+  const cat = document.createElement("img");
+  cat.src = cats[Math.floor(Math.random()*cats.length)];
+  cat.className = "cat";
+
+  cat.style.left = Math.random()*window.innerWidth + "px";
+
+  const size = rand(config.sizeMin, config.sizeMax);
+  cat.style.width = size + "px";
+
+  let duration = rand(3,6)*(11-speed)/5;
+  if (mode === "chaos" || mode === "rainbow") duration *= 0.6;
+
+  cat.style.animationDuration = duration + "s";
+
+  // INTERACTION FIX (klik / touch)
+  function bounce(e){
+    cat.style.animation = "none";
+
+    const rect = cat.getBoundingClientRect();
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
+
+    const dx = cx - (e.clientX || cx);
+    const dy = cy - (e.clientY || cy);
+
+    cat.style.transition = "transform 0.6s cubic-bezier(.2,.8,.2,1)";
+    cat.style.transform = `
+      translate(${dx*2}px, ${dy*2}px)
+      rotate(${rand(360,720)}deg)
+      scale(1.2)
+    `;
+
+    if(soundOn){
+      const audio = new Audio(meows[Math.floor(Math.random()*meows.length)]);
+      audio.volume = 0.3;
+      audio.play().catch(()=>{});
+    }
+
+    setTimeout(()=>cat.remove(),600);
+  }
+
+  cat.addEventListener("click", bounce);
+  cat.addEventListener("touchstart", bounce);
+
+  document.body.appendChild(cat);
+
+  setTimeout(()=>cat.remove(), duration*1000);
+}
+
+// LOOP (smooth)
+let last = 0;
+function loop(t){
+  if(!running) return;
+
+  if(t-last > (600/density)){
+    spawnCat();
+    last = t;
+  }
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// UTIL
+function rand(min,max){ return Math.random()*(max-min)+min; }
+
+// PERFORMANCE
+document.addEventListener("visibilitychange",()=>{
+  running = !document.hidden;
+  if(running) requestAnimationFrame(loop);
+});
+
+// REDUCE MOTION
+if(window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+  density=2;
+  speed=3;
+}
+</script>
+
+</body>
+</html>
